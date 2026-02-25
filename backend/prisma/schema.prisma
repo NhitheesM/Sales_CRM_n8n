@@ -1,0 +1,62 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Caller {
+  id             String    @id @default(uuid())
+  name           String
+  role           String
+  languages      Json      @default("[]")
+  assignedStates Json      @default("[]") @map("assigned_states")
+  dailyLimit     Int       @default(50) @map("daily_limit")
+  todayCount     Int       @default(0) @map("today_count")
+  lastAssignedAt DateTime? @map("last_assigned_at")
+  lastResetDate  DateTime? @map("last_reset_date") @db.Date
+  active         Boolean   @default(true)
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  leads          Lead[]
+  assignmentLogs AssignmentLog[]
+
+  @@map("callers")
+}
+
+model Lead {
+  id               String    @id @default(uuid())
+  sheetRowId       String?   @unique @map("sheet_row_id")
+  name             String
+  phone            String?
+  timestamp        DateTime?
+  leadSource       String?   @map("lead_source")
+  city             String?
+  state            String?
+  metadata         Json      @default("{}")
+  status           String    @default("new")
+  assignedCallerId String?   @map("assigned_caller_id")
+  assignedAt       DateTime? @map("assigned_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+
+  assignedCaller Caller?         @relation(fields: [assignedCallerId], references: [id])
+  assignmentLogs AssignmentLog[]
+
+  @@map("leads")
+}
+
+model AssignmentLog {
+  id         String   @id @default(uuid())
+  leadId     String   @map("lead_id")
+  callerId   String   @map("caller_id")
+  reason     String?
+  assignedAt DateTime @default(now()) @map("assigned_at")
+
+  lead   Lead   @relation(fields: [leadId], references: [id])
+  caller Caller @relation(fields: [callerId], references: [id])
+
+  @@map("assignment_log")
+}

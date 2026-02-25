@@ -1,0 +1,113 @@
+{
+    "name": "Google Sheets Lead Sync",
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "leads-ingest",
+                "responseMode": "responseNode",
+                "options": {}
+            },
+            "id": "webhook-trigger",
+            "name": "Webhook",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 1,
+            "position": [
+                240,
+                300
+            ],
+            "webhookId": "leads-ingest"
+        },
+        {
+            "parameters": {
+                "jsCode": "const body = $input.first().json.body || $input.first().json;\nconst normalizeState = (s) => s ? (s.trimStart().trimEnd()) : null;\n\nreturn [{\n  json: {\n    sheet_row_id:  body.sheet_row_id  || null,\n    name:          body.name          || 'Unknown',\n    phone:         body.phone         || null,\n    timestamp:     body.timestamp     || new Date().toISOString(),\n    lead_source:   body.lead_source   || 'WhatsApp',\n    city:          body.city          || null,\n    state:         normalizeState(body.state),\n    metadata:      body.metadata      || {}\n  }\n}];\n"
+            },
+            "id": "transform",
+            "name": "Transform & Validate",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                460,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "http://localhost:3001/api/leads/ingest",
+                "sendBody": true,
+                "bodyContentType": "json",
+                "specifyBody": "json",
+                "jsonBody": "={{ $json }}",
+                "options": {
+                    "timeout": 10000
+                }
+            },
+            "id": "http-request",
+            "name": "POST to CRM Backend",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                680,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "respondWith": "json",
+                "responseBody": "={{ { \"status\": \"ok\", \"lead_id\": $json.data?.id } }}"
+            },
+            "id": "respond",
+            "name": "Respond",
+            "type": "n8n-nodes-base.respondToWebhook",
+            "typeVersion": 1,
+            "position": [
+                900,
+                300
+            ]
+        }
+    ],
+    "connections": {
+        "Webhook": {
+            "main": [
+                [
+                    {
+                        "node": "Transform & Validate",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Transform & Validate": {
+            "main": [
+                [
+                    {
+                        "node": "POST to CRM Backend",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "POST to CRM Backend": {
+            "main": [
+                [
+                    {
+                        "node": "Respond",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "active": true,
+    "settings": {
+        "executionOrder": "v1"
+    },
+    "versionId": "1",
+    "meta": {
+        "templateVersion": 1
+    }
+}
